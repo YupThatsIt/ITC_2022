@@ -32,13 +32,14 @@ struct ButtonVar{
 struct Time{
   uint8_t hour;
   uint8_t minute;
-  uint8_t second;
+  int8_t second;
 };
 
 struct ButtonVar ctSwitch, cdSwitch, mdSwitch, svSwitch;
-struct Time clk, alm;
+struct Time clk, alm, cntdw = {0, 0, 0};
 
 uint8_t lastMin;
+uint8_t lastCntSec;
 uint8_t lastDig[4];
 uint8_t digits[4];
 
@@ -244,25 +245,39 @@ void display_symbol(uint8_t value, uint8_t isInvert, char symbol){
   int8_t invertx = 0, inverty = 0;
   if (isInvert == 1){ invertx = -31; inverty = -7; }
 
-  int wakeup[6][32] = {{1,0,0,0,1,0,0,1,1,0,0,1,0,0,1,0,1,1,1,1,0,0,0,1,0,0,1,0,1,1,1,0},
-                       {1,0,0,0,1,0,1,0,0,1,0,1,0,1,0,0,1,0,0,0,0,0,0,1,0,0,1,0,1,0,0,1},
-                       {1,0,1,0,1,0,1,0,0,1,0,1,1,0,0,0,1,1,1,1,0,0,0,1,0,0,1,0,1,0,0,1},
-                       {1,0,1,0,1,0,1,1,1,1,0,1,0,1,0,0,1,0,0,0,0,0,0,1,0,0,1,0,1,1,1,0},
-                       {1,0,1,0,1,0,1,0,0,1,0,1,0,0,1,0,1,0,0,0,0,0,0,1,0,0,1,0,1,0,0,0},
-                       {0,1,0,1,0,0,1,0,0,1,0,1,0,0,1,0,1,1,1,1,0,0,0,1,1,1,0,0,1,0,0,0}};
+  int8_t wakeup[6][32] = {{1,0,0,0,1,0,0,1,1,0,0,1,0,0,1,0,1,1,1,1,0,0,0,1,0,0,1,0,1,1,1,0},
+                          {1,0,0,0,1,0,1,0,0,1,0,1,0,1,0,0,1,0,0,0,0,0,0,1,0,0,1,0,1,0,0,1},
+                          {1,0,1,0,1,0,1,0,0,1,0,1,1,0,0,0,1,1,1,1,0,0,0,1,0,0,1,0,1,0,0,1},
+                          {1,0,1,0,1,0,1,1,1,1,0,1,0,1,0,0,1,0,0,0,0,0,0,1,0,0,1,0,1,1,1,0},
+                          {1,0,1,0,1,0,1,0,0,1,0,1,0,0,1,0,1,0,0,0,0,0,0,1,0,0,1,0,1,0,0,0},
+                          {0,1,0,1,0,0,1,0,0,1,0,1,0,0,1,0,1,1,1,1,0,0,0,1,1,1,0,0,1,0,0,0}};
 
-  int saved[6][28] = {{0,1,1,0,0,0,0,1,1,0,0,0,1,0,0,1,0,0,1,1,1,1,0,0,1,1,1,0},
-                      {1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,0,0,0,1,0,0,1},
-                      {1,0,0,0,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,1,1,1,0,0,1,0,0,1},
-                      {0,1,1,0,0,0,1,1,1,1,0,0,1,0,0,1,0,0,1,0,0,0,0,0,1,0,0,1},
-                      {0,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,0,0,0,1,0,0,1},
-                      {1,1,1,0,0,0,1,0,0,1,0,0,0,1,1,0,0,0,1,1,1,1,0,0,1,1,1,0}};
+  int8_t timeup[6][32] = {{1,1,1,1,1,0,1,1,1,0,1,0,0,0,1,0,1,1,1,1,0,0,0,1,0,0,1,0,1,1,1,0},
+                          {0,0,1,0,0,0,0,1,0,0,1,1,0,1,1,0,1,0,0,0,0,0,0,1,0,0,1,0,1,0,0,1},
+                          {0,0,1,0,0,0,0,1,0,0,1,0,1,0,1,0,1,1,1,1,0,0,0,1,0,0,1,0,1,0,0,1},
+                          {0,0,1,0,0,0,0,1,0,0,1,0,0,0,1,0,1,0,0,0,0,0,0,1,0,0,1,0,1,1,1,0},
+                          {0,0,1,0,0,0,0,1,0,0,1,0,0,0,1,0,1,0,0,0,0,0,0,1,0,0,1,0,1,0,0,0},
+                          {0,0,1,0,0,0,1,1,1,0,1,0,0,0,1,0,1,1,1,1,0,0,0,1,1,1,0,0,1,0,0,0}};
+
+  int8_t saved[6][28] = {{0,1,1,0,0,0,0,1,1,0,0,0,1,0,0,1,0,0,1,1,1,1,0,0,1,1,1,0},
+                         {1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,0,0,0,1,0,0,1},
+                         {1,0,0,0,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,1,1,1,0,0,1,0,0,1},
+                         {0,1,1,0,0,0,1,1,1,1,0,0,1,0,0,1,0,0,1,0,0,0,0,0,1,0,0,1},
+                         {0,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,0,0,0,1,0,0,1},
+                         {1,1,1,0,0,0,1,0,0,1,0,0,0,1,1,0,0,0,1,1,1,1,0,0,1,1,1,0}};
 
   if (symbol == 'c'){
-    plot(abs(invertx + 30), abs(inverty + 5), value);
+    plot(abs(invertx + 30), abs(inverty + 0), value);
+    plot(abs(invertx + 30), abs(inverty + 1), value);
+    plot(abs(invertx + 30), abs(inverty + 2), value);
+    plot(abs(invertx + 31), abs(inverty + 0), value);
+    plot(abs(invertx + 31), abs(inverty + 2), value);
+  }
+  if (symbol == 'd'){
     plot(abs(invertx + 30), abs(inverty + 6), value);
     plot(abs(invertx + 30), abs(inverty + 7), value);
     plot(abs(invertx + 31), abs(inverty + 5), value);
+    plot(abs(invertx + 31), abs(inverty + 6), value);
     plot(abs(invertx + 31), abs(inverty + 7), value);
   }
   if (symbol == 'a'){
@@ -270,6 +285,14 @@ void display_symbol(uint8_t value, uint8_t isInvert, char symbol){
       for (uint8_t y = 1; y <= 6; y++){
         if (value == 1){ plot(abs(invertx + x), abs(inverty + y), wakeup[y - 1][x]); }
         else { plot(abs(invertx + x), abs(inverty + y), wakeup[y - 1][x] - 1);}
+      }
+    }
+  }
+  if (symbol == 't'){
+    for (uint8_t x = 0; x < 32; x++){
+      for (uint8_t y = 1; y <= 6; y++){
+        if (value == 1){ plot(abs(invertx + x), abs(inverty + y), timeup[y - 1][x]); }
+        else { plot(abs(invertx + x), abs(inverty + y), timeup[y - 1][x] - 1);}
       }
     }
   }
@@ -300,6 +323,26 @@ void calculate_digits(Time timer){
   else {
     digits[1] = timer.hour % 10;
     digits[0] = timer.hour / 10;
+  }
+}
+
+void calculate_countdown_digits(){
+  if (cntdw.second < 10){
+    digits[3] = cntdw.second;
+    digits[2] = 0;
+  }
+  else {
+    digits[3] = cntdw.second % 10;
+    digits[2] = cntdw.second / 10;
+  }
+
+  if (cntdw.minute < 10){
+    digits[1] = cntdw.minute;
+    digits[0] = 0;
+  }
+  else {
+    digits[1] = cntdw.minute % 10;
+    digits[0] = cntdw.minute / 10;
   }
 }
 
@@ -341,6 +384,7 @@ bool lastInvert;
 uint8_t curBlinkDig;
 uint8_t mode;
 bool isCounting;
+bool isCntDw;
 
 void change_time(uint8_t *mode, Time *timer){ //Changing current timer
   if (millis() - curTime < 250){
@@ -360,44 +404,79 @@ void change_time(uint8_t *mode, Time *timer){ //Changing current timer
     if (curBlinkDig > 4){
       isCounting = true;
       curBlinkDig = 0;
-      *mode = *mode - 2;
+      *mode = *mode - 3;
     }
+    if (curBlinkDig == 2 && timer->hour >= 24 && timer->hour < 30){
+      timer->hour = 23;
+      clear_dig(curBlinkDig, isInvert);
+      calculate_digits(*timer);
+    }    
     cdSwitch.isProceed = 0;
   }
 
   if (ctSwitch.isProceed){
     if (curBlinkDig == 1){
-      timer->hour += 10;
-      if (timer->hour > 30){
-        timer->hour = 0 + timer->hour % 10;
+      if (*mode == 4 || *mode == 5){
+        timer->hour += 10;
+        if (timer->hour >= 30){
+          timer->hour = timer->hour % 10;
+        }
       }
-      else if (timer->hour >= 24 && timer->hour <= 30){
-        timer->hour = 23;
+      else if (*mode == 6){
+        timer->minute += 10;
+        if (timer->minute >= 60){
+          timer->minute = 0 + timer->minute % 10;
+        }
       }
     }
     if (curBlinkDig == 2){
-      timer->hour += 1;
-      if (timer->hour >= 24){
-        timer->hour -= 4;
+      if (*mode == 4 || *mode == 5){
+        timer->hour += 1;
+        if (timer->hour >= 24){
+          timer->hour -= 4;
+        }
+        else if (timer->hour % 10 == 0){
+          timer->hour -= 10;
+        }
       }
-      else if (timer->hour % 10 == 0){
-        timer->hour -= 10;
+      else if (*mode == 6){
+        timer->minute += 1;
+        if (timer->minute % 10 == 0){
+          timer->minute -= 10;
+        }
       }
     }
     if (curBlinkDig == 3){
-      timer->minute += 10;
-      if (timer->minute >= 60){
-        timer->minute = 0 + timer->minute % 10;
+      if (*mode == 4 || *mode == 5){
+        timer->minute += 10;
+        if (timer->minute >= 60){
+          timer->minute = 0 + timer->minute % 10;
+        }
+      }
+      else if (*mode == 6){
+        timer->second += 10;
+        if (timer->second >= 60){
+          timer->second = 0 + timer->second % 10;
+        }
       }
     }
     if (curBlinkDig == 4){
-      timer->minute += 1;
-      if (timer->minute % 10 == 0){
-        timer->minute -= 10;
+      if (*mode == 4 || *mode == 5){
+        timer->minute += 1;
+        if (timer->minute % 10 == 0){
+          timer->minute -= 10;
+        }
+      }
+      else if (*mode == 6){
+        timer->second += 1;
+        if (timer->second % 10 == 0){
+          timer->second -= 10;
+        }
       }
     }
     clear_dig(curBlinkDig, isInvert);
-    calculate_digits(*timer);
+    if (*mode == 6) calculate_countdown_digits();
+    else calculate_digits(*timer);
     ctSwitch.isProceed = 0;
   }
 }
@@ -405,14 +484,26 @@ void change_time(uint8_t *mode, Time *timer){ //Changing current timer
 void check_alarm(){ //To check if alm and clk is identical or not
   if (clk.hour == alm.hour && clk.minute == alm.minute && clk.second == alm.second){
     tone(BUZZER_PIN, 250, 5000);
-    Serial.println("WAKE UP!!!!!!!!!!!!!!");
-    for (uint8_t y = 0; y < 7; y++){
-      for (uint8_t x = 0; x < 31; x++){
+    for (uint8_t y = 0; y < 8; y++){
+      for (uint8_t x = 0; x < 32; x++){
         plot(x, y, 0);
       }
     }
     display_symbol(1, isInvert, 'a');
-    mode = 5;
+    mode = 7;
+  }
+}
+
+void check_countdown_reached(){
+  if (cntdw.minute == 0 && cntdw.second == 0){
+    tone(BUZZER_PIN, 500, 2000);
+    for (uint8_t y = 0; y < 8; y++){
+      for (uint8_t x = 0; x < 32; x++){
+        plot(x, y, 0);
+      }
+    }
+    display_symbol(1, isInvert, 't');
+    mode = 8;
   }
 }
 
@@ -442,17 +533,8 @@ ISR(TIMER1_OVF_vect){        // interrupt service routine
   TCNT1 = timer1_counter;   // preload timer
   if (isCounting){
     clk.second += 1;
-  }
-  //Update time
-  if (clk.second == 60){
-    clk.minute++;
-    clk.second = 0;
-    if (clk.minute == 60){
-      clk.hour++;
-      clk.minute = 0;
-      if (clk.hour == 24){
-        clk.hour = 0;  
-      }
+    if (mode == 3){
+      cntdw.second -= 1;
     }
   }
 }
@@ -493,16 +575,18 @@ void setup() {
   EEPROM.get(eeAddress, alm);
 
   lastMin = clk.minute;
+  lastCntSec = cntdw.second;
 
   isInvert = 0;
   lastInvert = 0;
   mode = 1;
   isCounting = true;
+  isCntDw = false;
 
    //we have to init all devices in a loop
   for(uint8_t address=0; address < devices; address++) { // set up each device 
     lc.shutdown(address, false);
-    lc.setIntensity(address, 7);
+    lc.setIntensity(address, 0);
     lc.clearDisplay(address);
   }
 
@@ -516,6 +600,29 @@ void setup() {
 }
 
 void loop() { 
+  //Update time
+  if (clk.second == 60){
+    clk.minute++;
+    clk.second = 0;
+    if (clk.minute == 60){
+      clk.hour++;
+      clk.minute = 0;
+      if (clk.hour == 24){
+        clk.hour = 0;  
+      }
+    }
+  }
+
+  //Update countdown time
+  if (cntdw.second < 0){
+    if (cntdw.minute != 0){
+      cntdw.second = 59;
+      cntdw.minute--;
+    }
+    else {
+      cntdw.second = 0;
+    }
+  }
   //unsigned long curTime;
   int gravity = get_gravity();
 
@@ -527,77 +634,113 @@ void loop() {
     isInvert = 1;
   }
 
-  if (mode == 1 || mode == 2 || mode == 5){
+  if (mode >= 1 || mode <= 3 || mode == 7){
     debounce(&mdSwitch);
   }
-  if (mode == 1 || mode == 2){
+  if (mode >= 1 || mode <= 3){
     debounce(&svSwitch);
   }
   debounce(&ctSwitch);
   debounce(&cdSwitch);
 
   //Check mode;
-  if (mdSwitch.isProceed == 1 && mode == 1){
-    mode = 2;
-    calculate_digits(alm);
-    for (uint8_t i = 0; i < 4; i++){
-      change_dig(1 + i, digits[i], isInvert);
+  if (mdSwitch.isProceed){
+    if (mode == 1){
+      calculate_digits(alm);
+      for (uint8_t i = 0; i < 4; i++){
+        change_dig(1 + i, digits[i], isInvert);
+      }
+      display_symbol(1, isInvert, 'c');
+      mode = 2;
     }
-    display_symbol(1, isInvert, 'c');
-    mdSwitch.isProceed = 0;
-  }
-  else if (mdSwitch.isProceed == 1 && mode == 2){
-    mode = 1;
-    calculate_digits(clk);
-    for (uint8_t i = 0; i < 4; i++){
-      change_dig(1 + i, digits[i], isInvert);
+    else if (mode == 2){
+      calculate_countdown_digits();
+      for (uint8_t i = 0; i < 4; i++){
+        change_dig(1 + i, digits[i], isInvert);
+        lastDig[i] = 0;
+      }
+      display_symbol(1, isInvert, 'd');
+      mode = 3;
     }
-    display_symbol(0, isInvert, 'c');
+    else if (mode == 3){
+      calculate_digits(clk);
+      for (uint8_t i = 0; i < 4; i++){
+        change_dig(1 + i, digits[i], isInvert);
+        lastDig[i] = digits[i];
+      }
+      display_symbol(0, isInvert, 'c');
+      display_symbol(0, isInvert, 'd');
+      cntdw.minute = 0;
+      cntdw.second = 0;
+      isCntDw = false;
+      mode = 1;
+    }
+    else if (mode == 7){
+      noTone(BUZZER_PIN);
+      display_symbol(0, isInvert, 'a');
+      display_colon();
+      calculate_digits(clk);
+      for (uint8_t i = 0; i < 4; i++){
+        change_dig(1 + i, digits[i], isInvert);
+      }
+      mode = 1;
+    }
+    else if (mode == 8){
+      Serial.println("YO MISTA WHITE");
+      noTone(BUZZER_PIN);
+      display_symbol(0, isInvert, 't');
+      display_colon();
+      calculate_countdown_digits();
+      for (uint8_t i = 0; i < 4; i++){
+        change_dig(1 + i, digits[i], isInvert);
+      }
+      display_symbol(1, isInvert, 'c');
+      display_symbol(1, isInvert, 'd');
+      mode = 3;
+      isCntDw = false;
+    }
     mdSwitch.isProceed = 0;
   }
 
   //To change time mode
-  if (mode == 1){
-    if (ctSwitch.isProceed == 1 || cdSwitch.isProceed == 1){
+  if (ctSwitch.isProceed == 1 || cdSwitch.isProceed == 1){
+    if (mode == 1){
       isCounting = false;
       curBlinkDig = 1;
-      mode = 3;
+      mode = 4;
       ctSwitch.isProceed = 0, cdSwitch.isProceed = 0;
     }
-  }
-  if (mode == 2){
-    if (ctSwitch.isProceed == 1 || cdSwitch.isProceed == 1){
+    else if (mode == 2){
       curBlinkDig = 1;
-      mode = 4;
+      mode = 5;
+      ctSwitch.isProceed = 0, cdSwitch.isProceed = 0;
+    }
+    else if (mode == 3){
+      curBlinkDig = 1;
+      mode = 6;
       ctSwitch.isProceed = 0, cdSwitch.isProceed = 0;
     }
   }
 
   //Change time mode
-  if (mode == 3){
+  if (mode == 4){
     change_time(&mode, &clk);
   }
-  else if (mode == 4){
+  else if (mode == 5){
     change_time(&mode, &alm);
+  }
+  else if (mode == 6){
+    change_time(&mode, &cntdw);
+    isCntDw = true;
   }
 
   if (mode == 1){ //Check Alarm in mode 1
     check_alarm();
   }
-
-  //to stop displaying "wake up"
-  if (mode == 5 && mdSwitch.isProceed == 1){ //Alarm goes on in mode 5
-    noTone(BUZZER_PIN);
-    display_symbol(0, isInvert, 'a');
-    display_colon();
-    calculate_digits(clk);
-    for (uint8_t i = 0; i < 4; i++){
-      change_dig(1 + i, digits[i], isInvert);
-    }
-    mode = 1;
-    mdSwitch.isProceed = 0;
+  if (mode == 3 && isCntDw == true){
+    check_countdown_reached();
   }
-
+  
   //To save time
   if (svSwitch.isProceed == 1){
     save_time();
@@ -615,20 +758,39 @@ void loop() {
     }
     lastMin = clk.minute;
   }
+
+  if (lastCntSec != cntdw.second && mode == 3){
+    calculate_countdown_digits();
+    for (uint8_t i = 0; i < 4; i++){
+      if (digits[i] != lastDig[i]){
+        change_dig(1 + i, digits[i], isInvert);
+      }
+      lastDig[i] = digits[i];
+    }
+    lastCntSec = cntdw.second;
+  }
   
   //Update Invert
   if (isInvert != lastInvert){
-    if (mode == 5){
+    if (mode == 7){ //Awake mode
       display_symbol(0, lastInvert, 'a');
       display_symbol(1, isInvert, 'a');
+    }
+    if (mode == 8){
+      display_symbol(0, lastInvert, 't');
+      display_symbol(1, isInvert, 't');
     }
     else {
       for (uint8_t i = 0; i < 4; i++){
         change_dig(1 + i, digits[i], isInvert);
       }
-      if (mode == 2){
+      if (mode == 2 || mode == 3){
         display_symbol(0, lastInvert, 'c');
         display_symbol(1, isInvert, 'c');
+      }
+      if (mode == 3){
+        display_symbol(0, lastInvert, 'd');
+        display_symbol(1, isInvert, 'd');
       }
     }
     lastInvert = isInvert;  
