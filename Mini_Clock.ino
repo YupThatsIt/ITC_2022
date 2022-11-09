@@ -498,10 +498,10 @@ void loop() {
   int gravity = get_gravity();
 
   //Check gravity
-  if (gravity >= 480){
+  if (gravity <= 400){
     isInvert = 0;
   }
-  else if (gravity <= 400){
+  else if (gravity >= 480){
     isInvert = 1;
   }
 
