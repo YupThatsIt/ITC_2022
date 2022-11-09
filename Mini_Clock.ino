@@ -3,9 +3,9 @@
 
 #define CNG_TIME_BTN_PIN 5
 #define CNG_DIG_BTN_PIN 6
-#define CNG_MODE_PIN 3
-#define EEPROM_PIN 4
-#define BUZZER_PIN 2
+#define CNG_MODE_PIN A4
+#define EEPROM_PIN A3
+#define BUZZER_PIN A5
 #define GRAVITY_PIN A1
 
 #define DIN_PIN 11
@@ -416,6 +416,28 @@ void check_alarm(){ //To check if alm and clk is identical or not
   }
 }
 
+void save_time(){
+  int eeAddress = 0;
+  EEPROM.put(eeAddress, clk);
+  eeAddress += sizeof(clk);
+  EEPROM.put(eeAddress, alm);
+  for (uint8_t y = 0; y < 8; y++){
+    for (uint8_t x = 0; x < 32; x++){
+      plot(x, y, 0);
+    }
+  }
+  display_symbol(1, lastInvert, 's');
+  delay(1000);
+  display_symbol(0, lastInvert, 's');
+  for (uint8_t i = 0; i < 4; i++){
+    change_dig(1 + i, digits[i], isInvert);
+  }
+  if (mode == 2){
+    display_symbol(1, isInvert, 'c');
+  }
+  display_colon();
+}
+
 ISR(TIMER1_OVF_vect){        // interrupt service routine 
   TCNT1 = timer1_counter;   // preload timer
   if (isCounting){
@@ -563,6 +585,7 @@ void loop() {
     check_alarm();
   }
 
+  //to stop displaying "wake up"
   if (mode == 5 && mdSwitch.isProceed == 1){ //Alarm goes on in mode 5
     noTone(BUZZER_PIN);
     display_symbol(0, isInvert, 'a');
@@ -575,26 +598,9 @@ void loop() {
     mdSwitch.isProceed = 0;
   }
 
+  //To save time
   if (svSwitch.isProceed == 1){
-    int eeAddress = 0;
-    EEPROM.put(eeAddress, clk);
-    eeAddress += sizeof(clk);
-    EEPROM.put(eeAddress, alm);
-    for (uint8_t y = 0; y < 7; y++){
-      for (uint8_t x = 0; x < 31; x++){
-        plot(x, y, 0);
-      }
-    }
-    display_symbol(1, lastInvert, 's');
-    delay(1000);
-    display_symbol(0, lastInvert, 's');
-    for (uint8_t i = 0; i < 4; i++){
-        change_dig(1 + i, digits[i], isInvert);
-    }
-    if (mode == 2){
-      display_symbol(1, isInvert, 'c');
-    }
-    display_colon();
+    save_time();
     svSwitch.isProceed = 0;
   }
 
