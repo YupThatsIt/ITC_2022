@@ -241,6 +241,35 @@ void display_colon(){
   plot(16, 6, 1);
 }
 
+void start_anim(){
+  int8_t clock_[6][24] = {{0,1,1,1,0,1,0,0,0,0,0,1,1,0,0,0,1,1,1,0,1,0,0,1},
+                          {1,0,0,0,0,1,0,0,0,0,1,0,0,1,0,1,0,0,0,0,1,0,1,0},
+                          {1,0,0,0,0,1,0,0,0,0,1,0,0,1,0,1,0,0,0,0,1,1,0,0},
+                          {1,0,0,0,0,1,0,0,0,0,1,0,0,1,0,1,0,0,0,0,1,0,1,0},
+                          {1,0,0,0,0,1,0,0,0,0,1,0,0,1,0,1,0,0,0,0,1,0,0,1},
+                          {0,1,1,1,0,1,1,1,1,0,0,1,1,0,0,0,1,1,1,0,1,0,0,1}};
+  
+  for (uint8_t _stop = 6; _stop > 0; _stop--){
+    for (int8_t y = 0; y <= _stop; y++){
+      for (uint8_t x = 0; x < 24; x++){
+         plot(4 + x, y - 1, 0);
+         plot(4 + x, y, clock_[_stop - 1][x]);
+      }
+    }
+  }
+
+  delay(1500);
+
+  for (uint8_t _stop = 6; _stop > 0; _stop--){
+    for (int8_t y = _stop; y <= 8; y++){
+      for (uint8_t x = 0; x < 24; x++){
+         plot(4 + x, y, 0);
+         plot(4 + x, y + 1, clock_[_stop - 1][x]);
+      }
+    }
+  }
+}
+
 void display_symbol(uint8_t value, uint8_t isInvert, char symbol){
   int8_t invertx = 0, inverty = 0;
   if (isInvert == 1){ invertx = -31; inverty = -7; }
@@ -385,6 +414,7 @@ uint8_t curBlinkDig;
 uint8_t mode;
 bool isCounting;
 bool isCntDw;
+bool beginCntdw;
 
 void change_time(uint8_t *mode, Time *timer){ //Changing current timer
   if (millis() - curTime < 250){
@@ -483,7 +513,7 @@ void change_time(uint8_t *mode, Time *timer){ //Changing current timer
 
 void check_alarm(){ //To check if alm and clk is identical or not
   if (clk.hour == alm.hour && clk.minute == alm.minute && clk.second == alm.second){
-    tone(BUZZER_PIN, 250, 5000);
+    tone(BUZZER_PIN, 1500, 10000);
     for (uint8_t y = 0; y < 8; y++){
       for (uint8_t x = 0; x < 32; x++){
         plot(x, y, 0);
@@ -496,7 +526,7 @@ void check_alarm(){ //To check if alm and clk is identical or not
 
 void check_countdown_reached(){
   if (cntdw.minute == 0 && cntdw.second == 0){
-    tone(BUZZER_PIN, 500, 2000);
+    tone(BUZZER_PIN, 1000, 2000);
     for (uint8_t y = 0; y < 8; y++){
       for (uint8_t x = 0; x < 32; x++){
         plot(x, y, 0);
@@ -533,7 +563,7 @@ ISR(TIMER1_OVF_vect){        // interrupt service routine
   TCNT1 = timer1_counter;   // preload timer
   if (isCounting){
     clk.second += 1;
-    if (mode == 3){
+    if (mode == 3 && isCntDw == true){
       cntdw.second -= 1;
     }
   }
@@ -582,13 +612,16 @@ void setup() {
   mode = 1;
   isCounting = true;
   isCntDw = false;
+  beginCntdw = false;
 
    //we have to init all devices in a loop
   for(uint8_t address=0; address < devices; address++) { // set up each device 
     lc.shutdown(address, false);
-    lc.setIntensity(address, 0);
+    lc.setIntensity(address, 7);
     lc.clearDisplay(address);
   }
+
+  start_anim();
 
   //Initial Display
   calculate_digits(clk);
@@ -662,7 +695,7 @@ void loop() {
       display_symbol(1, isInvert, 'd');
       mode = 3;
     }
-    else if (mode == 3){
+    else if (mode == 3 && beginCntdw == false){
       calculate_digits(clk);
       for (uint8_t i = 0; i < 4; i++){
         change_dig(1 + i, digits[i], isInvert);
@@ -675,6 +708,10 @@ void loop() {
       isCntDw = false;
       mode = 1;
     }
+    else if (mode == 3 && beginCntdw == true){
+      isCntDw = true;
+      beginCntdw = false;
+    }
     else if (mode == 7){
       noTone(BUZZER_PIN);
       display_symbol(0, isInvert, 'a');
@@ -686,7 +723,6 @@ void loop() {
       mode = 1;
     }
     else if (mode == 8){
-      Serial.println("YO MISTA WHITE");
       noTone(BUZZER_PIN);
       display_symbol(0, isInvert, 't');
       display_colon();
@@ -715,9 +751,14 @@ void loop() {
       mode = 5;
       ctSwitch.isProceed = 0, cdSwitch.isProceed = 0;
     }
-    else if (mode == 3){
+    else if (mode == 3 && isCntDw == false){
       curBlinkDig = 1;
       mode = 6;
+      ctSwitch.isProceed = 0, cdSwitch.isProceed = 0;
+    }
+    else if (mode == 3 && isCntDw == true){
+      isCntDw = false;
+      beginCntdw = true;
       ctSwitch.isProceed = 0, cdSwitch.isProceed = 0;
     }
   }
@@ -731,7 +772,7 @@ void loop() {
   }
   else if (mode == 6){
     change_time(&mode, &cntdw);
-    isCntDw = true;
+    beginCntdw = true;
   }
 
   if (mode == 1){ //Check Alarm in mode 1
@@ -743,7 +784,9 @@ void loop() {
   
   //To save time
   if (svSwitch.isProceed == 1){
-    save_time();
+    if (mode >= 1 && mode <= 3){
+      save_time();
+    }
     svSwitch.isProceed = 0;
   }
 
